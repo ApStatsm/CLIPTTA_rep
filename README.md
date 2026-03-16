@@ -1,3 +1,8 @@
+# CLIPTTA Reproducing experiment
+2026.03 ~
+chungang univ. lsm
+
+
 # CLIPTTA [NeurIPS 2025]
 Official implementation of the NeurIPS 2025 paper: CLIPTTA: Robust Contrastive Vision-Language Test-Time Adaptation. Please followe the following instructions to execute the main experiments found in the paper.
 
