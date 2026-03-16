@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=0,1 python ttavlm/main.py \
+CUDA_VISIBLE_DEVICES=1 python ttavlm/main.py \
 --exp_name cliptta_imagenet \
 --adaptation cliptta_old \
 --distributed \
@@ -17,7 +17,7 @@ CUDA_VISIBLE_DEVICES=0,1 python ttavlm/main.py \
 --batch_size 256 \
 --closed_set \
 
-CUDA_VISIBLE_DEVICES=0,1 python ttavlm/main.py \
+CUDA_VISIBLE_DEVICES=1 python ttavlm/main.py \
 --exp_name cliptta_imagenetc \
 --adaptation cliptta_old \
 --distributed \
