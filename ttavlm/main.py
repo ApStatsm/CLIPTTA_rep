@@ -181,6 +181,6 @@ if __name__ == "__main__":
         elif any(data in ["officehome"] for data in args.dataset):
             args.shift_type = OFFICEHOME_DOMAINS
 
-    lib.LOGGER.info(f"Launching TOSTTA on {args.env}'s environment, the dataroot is {args.dataroot}.")
+    lib.LOGGER.info(f"Launching run on dataset={args.dataset}, dataroot={args.dataroot}.")
 
     main(args)

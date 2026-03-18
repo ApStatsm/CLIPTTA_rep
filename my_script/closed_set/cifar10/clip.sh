@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=0,1 python ttavlm/main.py \
+CUDA_VISIBLE_DEVICES=3 python ttavlm/main.py \
 --exp_name clip_cifar10 \
 --adaptation source \
 --distributed \
@@ -8,7 +8,7 @@ CUDA_VISIBLE_DEVICES=0,1 python ttavlm/main.py \
 --seeds 42 \
 --closed_set \
 
-CUDA_VISIBLE_DEVICES=0,1 python ttavlm/main.py \
+CUDA_VISIBLE_DEVICES=3 python ttavlm/main.py \
 --exp_name clip_cifar10c \
 --adaptation source \
 --distributed \
