@@ -7,7 +7,8 @@ SHIFTS = ["original"] + CORRUPTIONS + PACS_DOMAINS + OFFICEHOME_DOMAINS + VISDA_
 
 ArgsType = argparse.Namespace
 
-
+# 스크립트에서 받을 커맨드라인 지정 및 옵션 정의.
+# 그니까 여기서 스트립트에 어떤 옵션들이 있는지 확인해야겠네.
 def argparser() -> ArgsType:
     parser = argparse.ArgumentParser()
 
@@ -20,7 +21,7 @@ def argparser() -> ArgsType:
     parser.add_argument("--display_progress", action="store_true")
 
     # Directories
-    parser.add_argument("--root", type=str, default="/ADD/PROJECT/ROOT")
+    parser.add_argument("--root", type=str, default="/ADD/PROJECT/ROOT")    # 여기서 경로 설정을 이렇게 해놔서 기본값이 저런거구나.
     parser.add_argument("--dataroot", type=str, default="/ADD/DATASETS/ROOT/")
     parser.add_argument("--save_root", type=str, default="work/", help="Path for base training weights")
     parser.add_argument("--save-iter", type=str, default="work/", help="Path for base training weights")
