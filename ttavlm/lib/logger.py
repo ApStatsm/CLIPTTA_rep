@@ -49,3 +49,20 @@ def setup_logger(logfile: Optional[str] = None) -> None:
 
     if file_warning:
         LOGGER.warning(f"Logfile {orig_logfile} does not exist, defaulting to {logfile}")
+
+
+def add_file_handler(logfile: str) -> None:
+    """Attach an additional file handler so the full run log is mirrored to `logfile`.
+
+    Keeps existing handlers (stdout + the default logs/ file) untouched, so stdout
+    output is preserved while the same content is also written to `logfile`.
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(logfile)), exist_ok=True)
+    formatter = logging.Formatter(
+        "[%(asctime)s][%(name)s][%(levelname)s] - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    file_handler = logging.FileHandler(logfile)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.INFO)
+    LOGGER.addHandler(file_handler)

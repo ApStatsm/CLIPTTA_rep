@@ -124,6 +124,9 @@ class CLIPTTA(AbstractOpenSetTTAModel):
         # Final loss
         loss = self.beta_tta * loss_tta - self.beta_reg * loss_reg + self.beta_ood * loss_ood
 
+        # Record loss components for CSV logging (pure side-effect, no behavior change).
+        self.record_loss_stats(loss_total=loss, loss_scont=loss_tta, loss_reg=loss_reg)
+
         loss.backward()
         return loss
 

@@ -4,6 +4,8 @@ from copy import copy
 from prettytable import PrettyTable
 from argparse import Namespace
 
+from ttavlm.lib.logger import LOGGER
+
 
 def print_results(
     results: dict,
@@ -41,7 +43,9 @@ def print_results(
         ]
     )
     t.align = "l"
-    print(t)
+    # Emit through the logger so the table appears on stdout (StreamHandler) and
+    # is also mirrored into the log files (logs/*.log and SAVE_ROOT/exp/run.log).
+    LOGGER.info("Final results:\n%s", t.get_string())
 
 
 def log_wandb_table(

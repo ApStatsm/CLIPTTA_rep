@@ -3,8 +3,9 @@ from ttavlm.lib.dataparallel import DataParallel
 from ttavlm.lib.fix_seed import fix_seed
 from ttavlm.lib.get_params_group import get_params_group
 from ttavlm.lib.json_utils import save_json, load_json
-from ttavlm.lib.logger import LOGGER, setup_logger
+from ttavlm.lib.logger import LOGGER, setup_logger, add_file_handler
 from ttavlm.lib.meters import AverageMeter, DictAverage, ProgressMeter
+from ttavlm.lib.metrics_logger import MetricsLogger
 from ttavlm.lib.metrics import get_ood_metrics
 from ttavlm.lib.neg_labels import negative_classes
 from ttavlm.lib.nullable_string import nullable_string
@@ -23,6 +24,8 @@ __all__ = [
     "get_params_group",
     "save_json", "load_json",
     "AverageMeter", "DictAverage", "ProgressMeter",
+    "MetricsLogger",
+    "add_file_handler",
     "get_ood_metrics",
     "negative_classes",
     "nullable_string",

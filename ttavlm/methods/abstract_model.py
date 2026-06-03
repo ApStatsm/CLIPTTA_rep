@@ -7,6 +7,7 @@ from wandb_osh.hooks import TriggerWandbSyncHook
 from copy import deepcopy
 
 import os
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -160,6 +161,42 @@ class AbstractOpenSetTTAModel(nn.Module):
         self.optimizer_state = self.copy_state(self.optimizer)
         if self.update_text:
             self.clip_text_encoder_state = self.copy_state(self.clip_text_encoder)
+
+        # Per-batch metric logging. `metrics_logger` is set externally (main.py)
+        # when result saving is enabled; otherwise logging is a no-op.
+        self.metrics_logger = None
+        self.reset_batch_stats()
+
+    # Metric keys populated by concrete methods during forward_and_adapt.
+    _LOSS_KEYS = ("loss_total", "loss_scont", "loss_reg")
+    _PRIOR_KEYS = (
+        "prior_entropy", "prior_entropy_norm", "top1_prior_class",
+        "top1_prior_value", "prior_delta_l1", "selected_ratio", "num_selected",
+    )
+
+    def reset_batch_stats(self) -> None:
+        """Reset the per-batch stats to NA (None). Called once per batch."""
+        self.batch_stats = {k: None for k in (self._LOSS_KEYS + self._PRIOR_KEYS)}
+
+    def record_loss_stats(self, loss_total=None, loss_scont=None, loss_reg=None) -> None:
+        """Record loss components for the current batch (pure side-effect)."""
+        def _f(x):
+            if x is None:
+                return None
+            return float(x.detach().item()) if hasattr(x, "detach") else float(x)
+
+        if loss_total is not None:
+            self.batch_stats["loss_total"] = _f(loss_total)
+        if loss_scont is not None:
+            self.batch_stats["loss_scont"] = _f(loss_scont)
+        if loss_reg is not None:
+            self.batch_stats["loss_reg"] = _f(loss_reg)
+
+    def record_prior_stats(self, **kwargs) -> None:
+        """Record prior-related metrics for the current batch (pure side-effect)."""
+        for key, value in kwargs.items():
+            if key in self._PRIOR_KEYS:
+                self.batch_stats[key] = value
 
     def get_features(
         self,
@@ -338,6 +375,8 @@ class AbstractOpenSetTTAModel(nn.Module):
 
 
 
+                probs = None
+                self.reset_batch_stats()
                 if self.adaptation == "zero":
                     logits, scores, p_bar = self.forward_and_adapt(all_images, step=0, labels=labels)
                 else:
@@ -389,6 +428,30 @@ class AbstractOpenSetTTAModel(nn.Module):
                         "acc": (pred_[:n_id] == labels).float().sum().item() / n_id,
                     }
                 )
+
+                # Per-batch metric logging (CSV). Confidence/entropy are derived
+                # from the predictive probabilities; loss/prior stats come from
+                # `self.batch_stats` populated by the concrete method.
+                if self.metrics_logger is not None:
+                    if probs is not None:
+                        id_probs = probs[:n_id]
+                        n_classes = id_probs.shape[1]
+                        mean_confidence = id_probs.max(dim=-1).values.mean().item()
+                        pred_entropy = lib.entropy(id_probs.clamp(min=1e-12)).mean().item()
+                        pred_entropy_norm = pred_entropy / math.log(n_classes) if n_classes > 1 else 0.0
+                    else:
+                        mean_confidence = pred_entropy = pred_entropy_norm = None
+
+                    stats = dict(self.batch_stats)
+                    stats.update(
+                        batch_idx=n,
+                        batch_acc=(pred_[:n_id] == labels).float().mean().item(),
+                        running_acc=acc.item() / count,
+                        mean_confidence=mean_confidence,
+                        pred_entropy=pred_entropy,
+                        pred_entropy_norm=pred_entropy_norm,
+                    )
+                    self.metrics_logger.log_batch(stats)
 
                 if not closed_set:
                     # OOD scores, for Open-Set detection

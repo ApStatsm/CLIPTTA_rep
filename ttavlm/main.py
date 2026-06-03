@@ -27,6 +27,24 @@ def main(args: ArgsType) -> None:
 
     trigger_sync = lambda: None  # noqa F811
 
+    # ---- Result saving: SAVE_ROOT/exp_name/{args.json, run.log, *.csv} ----
+    exp_dir = os.path.join(args.save_root, args.exp_name)
+    os.makedirs(exp_dir, exist_ok=True)
+    lib.save_json(vars(args), os.path.join(exp_dir, "args.json"))
+    lib.add_file_handler(os.path.join(exp_dir, "run.log"))
+    lib.LOGGER.info(f"Saving experiment outputs to {exp_dir}")
+    metrics_logger = lib.MetricsLogger(
+        exp_dir,
+        static_meta={
+            "exp_name": args.exp_name,
+            "adaptation": args.adaptation,
+            "base_model_name": args.base_model_name,
+            "batch_size": args.batch_size,
+            "steps": args.steps,
+            "lr": args.lr,
+        },
+    )
+
     results = dict()
     for dataset in args.dataset:
         # Load base model
@@ -49,6 +67,7 @@ def main(args: ArgsType) -> None:
 
         # Loading TTA model
         tta_model = return_tta_model(args.adaptation, base_model, args, template, clean_val_dataset.class_names)
+        tta_model.metrics_logger = metrics_logger
 
         results[dataset] = lib.DictAverage()
         for seed_id, seed in enumerate(args.seeds):
@@ -127,7 +146,9 @@ def main(args: ArgsType) -> None:
                         ood_loader = None
 
                     # Test-Time Adaptation
+                    metrics_logger.start_run(seed=seed, dataset=dataset, shift_type=shift_type, severity=severity)
                     acc, auc, fpr, _ = tta_model.get_results(main_loader, ood_loader, run_wandb, trigger_sync, args.display_progress)
+                    metrics_logger.end_run(final_accuracy=acc)
 
                     results[dataset][corr_severity]["acc"].update(acc)
                     results[dataset][corr_severity]["auc"].update(auc)
@@ -151,6 +172,13 @@ def main(args: ArgsType) -> None:
             results[dataset]["overall"]["fpr"].update(overall_fpr)
 
     lib.print_results(results)
+    metrics_logger.close()
+    lib.LOGGER.info(
+        f"Saved: {os.path.join(exp_dir, 'args.json')}, "
+        f"{os.path.join(exp_dir, 'batch_metrics.csv')}, "
+        f"{os.path.join(exp_dir, 'final_metrics.csv')}, "
+        f"{os.path.join(exp_dir, 'run.log')}"
+    )
 
 
 if __name__ == "__main__":

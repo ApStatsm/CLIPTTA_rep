@@ -1,6 +1,8 @@
 from typing import Dict, Any, Optional, Tuple, List
 from typing_extensions import TypeAlias
 
+import math
+
 import torch
 import torch.nn.functional as F
 from torch import Tensor
@@ -104,6 +106,23 @@ class CLIPTTA_Prior(CLIPTTA):
 
         return likelihood, posterior
 
+    def _record_prior_snapshot(self, selected_ratio: float, num_selected: int, prior_delta_l1: float) -> None:
+        """Record current prior statistics for CSV logging."""
+        p = self.prior.detach()
+        n = p.numel()
+        pc = p.clamp(min=_EPS)
+        prior_entropy = float(-(pc * pc.log()).sum().item())
+        prior_entropy_norm = prior_entropy / math.log(n) if n > 1 else 0.0
+        self.record_prior_stats(
+            prior_entropy=prior_entropy,
+            prior_entropy_norm=prior_entropy_norm,
+            top1_prior_class=int(p.argmax().item()),
+            top1_prior_value=float(p.max().item()),
+            prior_delta_l1=float(prior_delta_l1),
+            selected_ratio=float(selected_ratio),
+            num_selected=int(num_selected),
+        )
+
     @torch.no_grad()
     def _update_prior(self, images: List[Tensor]) -> None:
         """Update the class-prior from the post-adaptation posterior."""
@@ -115,33 +134,40 @@ class CLIPTTA_Prior(CLIPTTA):
         self.posterior_after = posterior_after.detach()
         self.conf_after = conf_after.detach()
 
+        num_selected = 0
+        selected_ratio = 0.0
+        prior_delta_l1 = 0.0
+
         conf_before = self.conf_before
-        if conf_before is None or conf_before.shape[0] != conf_after.shape[0]:
-            # Batch composition changed (e.g. OOD filtering); skip update safely.
-            return
+        if conf_before is not None and conf_before.shape[0] == conf_after.shape[0]:
+            # gain = conf_after - conf_before
+            gain = conf_after - conf_before.to(conf_after.device)
 
-        # gain = conf_after - conf_before
-        gain = conf_after - conf_before.to(conf_after.device)
+            # Keep only samples that improved and are confident enough.
+            mask = (gain > self.prior_min_gain) & (conf_after > self.prior_min_conf)
+            num_selected = int(mask.sum().item())
+            selected_ratio = num_selected / max(conf_after.shape[0], 1)
 
-        # Keep only samples that improved and are confident enough.
-        mask = (gain > self.prior_min_gain) & (conf_after > self.prior_min_conf)
-        if mask.sum() == 0:
-            return
+            if num_selected > 0:
+                selected_posterior = posterior_after[mask]
+                weights = gain[mask].clamp(min=0.0)
+                wsum = weights.sum()
+                if (not torch.isfinite(wsum)) or (wsum <= _EPS):
+                    # Degenerate weights -> fall back to a plain average.
+                    weights = torch.ones_like(weights)
+                    wsum = weights.sum()
 
-        selected_posterior = posterior_after[mask]
-        weights = gain[mask].clamp(min=0.0)
-        wsum = weights.sum()
-        if (not torch.isfinite(wsum)) or (wsum <= _EPS):
-            # Degenerate weights -> fall back to a plain average.
-            weights = torch.ones_like(weights)
-            wsum = weights.sum()
+                # gain-weighted average of the selected posteriors.
+                batch_prior = (weights.unsqueeze(1) * selected_posterior).sum(dim=0) / wsum
+                batch_prior = self._sanitize(batch_prior)
 
-        # gain-weighted average of the selected posteriors.
-        batch_prior = (weights.unsqueeze(1) * selected_posterior).sum(dim=0) / wsum
-        batch_prior = self._sanitize(batch_prior)
+                old_prior = self.prior.clone()
+                new_prior = self.prior_alpha * self.prior + (1.0 - self.prior_alpha) * batch_prior
+                new_prior = self._sanitize(new_prior)
+                prior_delta_l1 = float((new_prior - old_prior).abs().sum().item())
+                self.prior = new_prior
 
-        new_prior = self.prior_alpha * self.prior + (1.0 - self.prior_alpha) * batch_prior
-        self.prior = self._sanitize(new_prior)
+        self._record_prior_snapshot(selected_ratio, num_selected, prior_delta_l1)
 
     # ------------------------------------------------------------------ #
     # CLIPTTA hooks
@@ -210,8 +236,13 @@ class CLIPTTA_Prior(CLIPTTA):
         logits, scores = super().forward_and_adapt(images, step, labels)
 
         # After adaptation: compute posterior_after / conf_after and update prior.
-        if self.use_dynamic_prior and step == self.steps - 1:
-            self._update_prior(images)
+        if step == self.steps - 1:
+            if self.use_dynamic_prior:
+                self._update_prior(images)
+            else:
+                # Prior is unchanged, but still log its current statistics so the
+                # prior columns are populated (not NA) for this prior-based method.
+                self._record_prior_snapshot(selected_ratio=0.0, num_selected=0, prior_delta_l1=0.0)
 
         return logits, scores
 
