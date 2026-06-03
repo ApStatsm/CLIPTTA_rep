@@ -2,7 +2,7 @@
 __pycache__
 .ipynb_checkpoints
 .pytest_cache
-.claude
+.claude/
 
 build/
 dist/
