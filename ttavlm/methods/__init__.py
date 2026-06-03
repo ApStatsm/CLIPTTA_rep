@@ -6,6 +6,7 @@ from torch import nn
 from ttavlm.methods.abstract_model import AbstractOpenSetTTAModel
 from ttavlm.methods.clipartt import CLIPArTT
 from ttavlm.methods.cliptta_otsu import CLIPTTA
+from ttavlm.methods.cliptta_prior import CLIPTTA_Prior
 from ttavlm.methods.cliptta import CLIPTTA_Old
 from ttavlm.methods.source import SourceModel
 from ttavlm.methods.stamp import STAMP
@@ -32,6 +33,7 @@ __all__ = [
     "AbstractOpenSetTTAModel",
     "CLIPArTT",
     "CLIPTTA",
+    "CLIPTTA_Prior",
     "CLIPTTA_Old",
     "OSTTA",
     "SourceModel",
@@ -196,6 +198,24 @@ def return_tta_model(
             use_clipartt=args.use_clipartt_loss,
             K=args.K,
             clipartt_temp=args.clipartt_temp,
+            **base_tta_kwargs,
+        )
+    elif model_type == "cliptta_prior":
+        model = CLIPTTA_Prior(
+            template=template,
+            class_names=class_names,
+            use_softmax_entropy=args.use_softmax_entropy,
+            use_memory=args.use_memory,
+            use_scheduler=args.use_scheduler,
+            use_tent=args.use_tent,
+            use_clipartt=args.use_clipartt_loss,
+            K=args.K,
+            clipartt_temp=args.clipartt_temp,
+            prior_alpha=args.prior_alpha,
+            prior_strength=args.prior_strength,
+            prior_min_gain=args.prior_min_gain,
+            prior_min_conf=args.prior_min_conf,
+            use_dynamic_prior=args.use_dynamic_prior,
             **base_tta_kwargs,
         )
     elif model_type == "cliptta_old":

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mv scripts/run_cliptta_baseline_cifar10c.sh scripts/run_cliptta_prior_cifar10c.sh ttavlm/my_script/)",
+      "Bash(rmdir scripts *)",
+      "Bash(xargs cat)"
+    ]
+  }
+}

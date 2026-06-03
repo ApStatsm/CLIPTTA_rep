@@ -20,6 +20,7 @@ def argparser() -> ArgsType:
     parser.add_argument("--display_progress", action="store_true")
 
     # Directories
+    parser.add_argument("--env", type=str, default="local", help="Name of the execution environment (used for logging only)")
     parser.add_argument("--root", type=str, default="/ADD/PROJECT/ROOT")
     parser.add_argument("--dataroot", type=str, default="/ADD/DATASETS/ROOT/")
     parser.add_argument("--save_root", type=str, default="work/", help="Path for base training weights")
@@ -122,6 +123,7 @@ def argparser() -> ArgsType:
             "ostta",
             "clipartt",
             "cliptta",
+            "cliptta_prior",
             "cliptta_old",
             "ostta",
             "rotta",
@@ -227,6 +229,13 @@ def argparser() -> ArgsType:
     parser.add_argument("--max_iter", type=int, default=150, help="Maximum number of iterations for the lr scheduler")
     parser.add_argument("--use_softmax_entropy", action="store_true")
     parser.add_argument("--use_tent", action="store_true")
+
+    # CLIPTTA_Prior specific arguments (dynamic class-prior)
+    parser.add_argument("--prior_alpha", type=float, default=0.9, help="EMA coefficient for the class-prior update")
+    parser.add_argument("--prior_strength", type=float, default=1.0, help="Exponent controlling how strongly the prior biases the posterior")
+    parser.add_argument("--prior_min_gain", type=float, default=0.0, help="Minimum confidence gain for a sample to update the prior")
+    parser.add_argument("--prior_min_conf", type=float, default=0.0, help="Minimum post-adaptation confidence for a sample to update the prior")
+    parser.add_argument("--use_dynamic_prior", action="store_true", help="Enable the dynamic class-prior update in cliptta_prior")
 
     # UniEnt specific arguments
     parser.add_argument("--use_cliptta_loss", action="store_true")
